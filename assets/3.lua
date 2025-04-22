@@ -1,3 +1,3 @@
-local function customScript3()
-    
+function script.update(dt)
+
 end
