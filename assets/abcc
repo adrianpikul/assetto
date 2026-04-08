@@ -1,0 +1,123 @@
+I would like to understand how agent orchestration works in GitHub Copilot within a local development setup. I am working in VSCode with a simple Vite + React + TypeScript project, and I am not using GitHub Actions, Workflows, or any cloud execution. The goal is to understand how to design and implement agent-based orchestration using custom instructions, skills, and multiple cooperating agents.
+
+Based on this, please design and explain a complete, production-grade PR Review agent orchestration system. The solution must follow best practices and align with official GitHub Copilot agent documentation (especially skills design and composition), such as:
+https://docs.github.com/en/copilot/how-tos/use-copilot-agents/cloud-agent/create-skills
+
+The system should include:
+
+a clear orchestrator agent responsible for execution flow
+well-defined skills with explicit input/output contracts
+multiple specialized review agents
+shared context handling between agents
+parallel execution where appropriate
+deterministic outputs (structured, not free-form)
+caching and reproducibility mechanisms
+failure handling and fallback logic
+
+My PR review agent orchestration requirements are as follows:
+
+Branch Parsing and Git Diff Retrieval
+Create a skill that extracts $projectCode-$jiraId from the branch name.
+Example formats:
+feature/C1234-43224-something-to-do
+bug/C1234-43224-fix-issue
+The parsing should handle optional prefixes like feature/, bug/, hotfix/, etc.
+Once $projectCode-$jiraId is extracted, create a skill that retrieves the Git diff based on commits that include this identifier in commit messages.
+Assume commit message format is standardized and enforced.
+If no direct match is found, fall back to scanning recent branch commits.
+Introduce a filesystem-based caching mechanism:
+cache key should include repo, branch, jiraId, and last commit hash
+cache location (e.g. .copilot/cache/)
+avoid recomputing diffs if unchanged
+Jira Context Acquisition
+The system should request the Jira description from the user for the extracted $jiraId.
+This should be implemented as a skill with a clear interface.
+Design it in a way that it could later be extended to integrate with Jira API.
+Shared Context Object
+Introduce a global structured context object shared across all agents, containing:
+branch name
+projectCode
+jiraId
+git diff
+list of changed files
+jira description
+All agents must consume this context instead of relying on implicit state.
+Review Agents (executed in parallel)
+
+Create the following specialized agents:
+
+Requirement Coverage Agent
+Compares Jira description with implementation
+Extracts requirements and verifies coverage
+Outputs:
+implemented items
+partially implemented items
+missing requirements
+improvement suggestions
+Code Quality Agent
+Verifies compliance with project rules and best practices
+Checks:
+code structure and readability
+adherence to patterns (e.g., SOLID where applicable)
+presence and quality of tests
+edge case coverage
+potential regressions
+Flags missing or weak tests explicitly
+Business Logic Agent
+Evaluates the implementation from a business/domain perspective
+Identifies:
+missing edge cases
+incorrect assumptions
+potential logical gaps
+user-flow inconsistencies
+Should simulate realistic usage scenarios
+Aggregation Layer
+Introduce a dedicated aggregation step (skill or agent) that:
+collects outputs from all review agents
+deduplicates findings
+classifies issues into severity levels
+Severity Classification
+Define strict classification rules:
+Critical → breaking requirements, incorrect logic, major risks
+NotImplemented → explicitly missing functionality from Jira
+NiceToFix → improvements, optimizations, non-blocking suggestions
+Final Output
+The system should return a single structured summary report containing:
+Critical
+NotImplemented
+NiceToFix
+Output must be structured (e.g., JSON-like or clearly segmented), not just free text.
+Post-Review Actions (Agent Continuations)
+Below the report, include actionable options:
+“Create Plan to Fix Below Issues”
+triggers a Fix Planning Agent
+generates step-by-step resolution plan
+“Implement Below Issues in Agent Mode”
+triggers a Fix Implementation Agent
+applies code changes based on identified issues and diff context
+Orchestration Layer
+Introduce a top-level Orchestrator Agent responsible for:
+executing skills in order
+spawning review agents in parallel
+managing shared context
+handling failures (e.g., missing Jira ID, empty diff)
+coordinating final aggregation
+Failure Handling
+Define fallback behaviors:
+if Jira ID cannot be extracted → ask user
+if diff cannot be generated → stop with explanation
+if Jira description missing → block review until provided
+Observability (optional but preferred)
+Include logging or trace steps:
+skill execution
+agent outputs
+decision points
+
+The final result should clearly demonstrate:
+
+how skills are defined and used as tools
+how multiple agents collaborate
+how orchestration is structured (not just prompts, but execution flow)
+how this can realistically be implemented inside a local VSCode + Copilot environment without GitHub Actions
+
+Focus on clarity, structure, and alignment with Copilot agent design principles.
